@@ -7,51 +7,50 @@
   <title>設計部待辦</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="has-savebar">
   <header class="site-header">
     <nav class="site-nav" aria-label="頁面">
       <a href="index.html">報修登記</a>
       <a href="design.html" aria-current="page">設計部待辦</a>
     </nav>
     <h1>設計部待辦</h1>
-    <p class="subtitle">選擇待辦類型、填寫內容後按「確認送出」，資料會保存並顯示在下方清單。</p>
+    <p class="subtitle">從選單選擇項目，逐列填寫內容，完成的勾選「已完成」，最後按「確認送出」保存。</p>
   </header>
 
   <main>
-    <section class="card" aria-labelledby="form-title">
-      <h2 id="form-title">登錄待辦</h2>
-      <form id="task-form" novalidate>
-        <div class="field">
-          <label for="task_type">待辦類型</label>
-          <select id="task_type" name="task_type" required>
-            <option value="" selected disabled>請選擇</option>
-            <option value="待規劃案件">待規劃案件</option>
-            <option value="待計算數量案件">待計算數量案件</option>
-            <option value="計算書待計算案件">計算書待計算案件</option>
-          </select>
-        </div>
+    <div id="menu" class="menu" role="tablist" aria-label="待辦項目">
+      <button type="button" role="tab" class="menu-item" data-tab="待規劃案件">
+        <span class="menu-name">待規劃案件</span><span class="menu-count" data-count="待規劃案件">0</span>
+      </button>
+      <button type="button" role="tab" class="menu-item" data-tab="待計算數量案件">
+        <span class="menu-name">待計算數量案件</span><span class="menu-count" data-count="待計算數量案件">0</span>
+      </button>
+      <button type="button" role="tab" class="menu-item" data-tab="計算書待計算案件">
+        <span class="menu-name">計算書待計算案件</span><span class="menu-count" data-count="計算書待計算案件">0</span>
+      </button>
+      <button type="button" role="tab" class="menu-item menu-done" data-tab="已完成">
+        <span class="menu-name">已完成</span><span class="menu-count" data-count="已完成">0</span>
+      </button>
+    </div>
 
-        <div class="field">
-          <label for="content">內容</label>
-          <textarea id="content" name="content" rows="4" maxlength="1000" required
-                    placeholder="例如：案件名稱、編號、說明"></textarea>
-          <p class="hint"><span id="content-count">0</span> / 1000 字</p>
-        </div>
-
-        <button id="submit-btn" type="submit">確認送出</button>
-        <p id="form-message" class="message" role="status" aria-live="polite" hidden></p>
-      </form>
-    </section>
-
-    <section class="card" aria-labelledby="list-title">
+    <section class="card" role="tabpanel" aria-labelledby="panel-title">
       <div class="list-head">
-        <h2 id="list-title">最近 20 筆登錄</h2>
-        <button id="refresh-btn" type="button" class="secondary">重新整理</button>
+        <h2 id="panel-title">待規劃案件</h2>
+        <button id="reload-btn" type="button" class="secondary">重新整理</button>
       </div>
+      <p id="panel-hint" class="hint-left"></p>
       <p id="list-message" class="message" role="status" aria-live="polite" hidden></p>
-      <ul id="task-list" class="request-list"></ul>
+      <ol id="item-list" class="item-list"></ol>
+      <button id="add-row-btn" type="button" class="secondary add-row">＋ 新增一列</button>
     </section>
   </main>
+
+  <div class="savebar">
+    <div class="savebar-inner">
+      <p id="save-status" class="save-status" role="status" aria-live="polite">沒有未儲存的變更</p>
+      <button id="save-btn" type="button">確認送出</button>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"
           integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK"
