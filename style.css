@@ -191,25 +191,17 @@ button.secondary {
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
-/* 設計部代辦 */
-.todo-list { list-style: none; margin: 12px 0 0; padding: 0; }
-.todo { border-top: 1px solid var(--border); }
-.todo:first-child { border-top: 0; }
-.todo label {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
+/* 設計部待辦 */
+select {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
   min-height: 48px;
-  cursor: pointer;
 }
-.todo input[type="checkbox"] {
-  width: 22px; height: 22px; flex: none;
-  accent-color: var(--primary);
-}
-.todo span { overflow-wrap: anywhere; }
-.todo.done span { color: var(--muted); text-decoration: line-through; }
-
-.todo-form { display: flex; gap: 8px; }
-.todo-form input { flex: 1; min-width: 0; }
-.todo-form button { flex: none; }
+select:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.tag.task-type { color: var(--primary); border-color: currentColor; font-weight: 600; }

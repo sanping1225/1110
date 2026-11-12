@@ -53,7 +53,8 @@
       case "23514": return "資料不符合規定（選項或字數），請檢查後再送出。";
       case "23502": return "有必填欄位沒有填寫。";
       case "42501": return "沒有權限執行這個動作，請聯絡管理員。";
-      case "42P01": return "找不到報修資料表，請聯絡管理員。";
+      case "PGRST205":
+      case "42P01": return "找不到報修資料表，請在 Supabase 執行 supabase/schema.sql。";
     }
     if (error.message && /fetch|network/i.test(error.message)) {
       return "連線失敗，請檢查網路後再試一次。";
