@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>設計部代辦</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <nav class="site-nav" aria-label="頁面">
+      <a href="index.html">報修登記</a>
+      <a href="design.html" aria-current="page">設計部代辦</a>
+    </nav>
+    <h1>設計部代辦</h1>
+    <p class="subtitle">點選事項可勾選完成或取消完成。</p>
+  </header>
+
+  <main>
+    <section class="card" aria-labelledby="todo-title">
+      <div class="list-head">
+        <h2 id="todo-title">代辦事項</h2>
+        <button id="refresh-btn" type="button" class="secondary">重新整理</button>
+      </div>
+      <p id="list-message" class="message" role="status" aria-live="polite" hidden></p>
+      <ul id="todo-list" class="todo-list"></ul>
+    </section>
+
+    <section class="card" aria-labelledby="add-title">
+      <h2 id="add-title">新增代辦</h2>
+      <form id="todo-form" class="todo-form" novalidate>
+        <label for="item" class="visually-hidden">代辦事項</label>
+        <input id="item" name="item" type="text" maxlength="100" required placeholder="輸入代辦事項">
+        <button id="add-btn" type="submit">新增</button>
+      </form>
+      <p id="form-message" class="message" role="status" aria-live="polite" hidden></p>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"
+          integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK"
+          crossorigin="anonymous"></script>
+  <script src="config.js"></script>
+  <script src="design.js"></script>
+</body>
+</html>
