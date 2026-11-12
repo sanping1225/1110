@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>報修登記</title>
+  <meta name="theme-color" content="#2459a6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="報修登記">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,7 +20,9 @@
     <nav class="site-nav" aria-label="頁面">
       <a href="index.html" aria-current="page">報修登記</a>
       <a href="design.html">設計部待辦</a>
+      <button id="install-btn" type="button" class="secondary install-btn" hidden>安裝 App</button>
     </nav>
+    <p id="offline-banner" class="message error offline-banner" role="status" hidden>目前離線：畫面可以開啟，但讀取與送出資料需要網路。</p>
     <h1>報修登記</h1>
     <p class="subtitle">填寫下方表單送出報修，清單會顯示最近 20 筆。</p>
   </header>
@@ -76,6 +86,7 @@
           integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK"
           crossorigin="anonymous"></script>
   <script src="config.js"></script>
+  <script src="pwa.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
