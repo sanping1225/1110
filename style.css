@@ -1,0 +1,168 @@
+/* 報修登記：手機優先的樣式，寬螢幕再放寬版面 */
+:root {
+  --bg: #f4f6f9;
+  --card: #ffffff;
+  --text: #1f2933;
+  --muted: #5f6b7a;
+  --border: #d5dbe3;
+  --primary: #2459a6;
+  --primary-text: #ffffff;
+  --ok-bg: #e6f4ea;
+  --ok-text: #1e6b34;
+  --err-bg: #fdecea;
+  --err-text: #a1261b;
+  --urg-low: #4b7d4f;
+  --urg-mid: #b07a12;
+  --urg-high: #b3261e;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14181d;
+    --card: #1d232a;
+    --text: #e6e9ed;
+    --muted: #9aa5b1;
+    --border: #36404b;
+    --primary: #5b8fd9;
+    --primary-text: #0f1419;
+    --ok-bg: #173323;
+    --ok-text: #8fd6a4;
+    --err-bg: #3a1a17;
+    --err-text: #f2a39b;
+    --urg-low: #8cc490;
+    --urg-mid: #e2b04f;
+    --urg-high: #f08a82;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
+               "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.site-header,
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.site-header { padding-top: 24px; }
+h1 { margin: 0; font-size: 1.6rem; }
+h2 { margin: 0 0 12px; font-size: 1.2rem; }
+.subtitle { margin: 4px 0 16px; color: var(--muted); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+/* 表單 */
+.field { margin: 0 0 16px; padding: 0; border: 0; min-width: 0; }
+.field > label,
+.field > legend { display: block; font-weight: 600; margin-bottom: 6px; padding: 0; }
+
+input[type="text"],
+textarea {
+  width: 100%;
+  /* 16px 以上可避免 iOS 點輸入框時自動放大 */
+  font: inherit;
+  font-size: 16px;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+textarea { resize: vertical; min-height: 110px; }
+input:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+.choice input:focus-visible + span {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.hint { margin: 4px 0 0; font-size: 0.85rem; color: var(--muted); text-align: right; }
+
+/* 類別、緊急程度：大按鈕式選項，手指好點 */
+.choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.choice { flex: 1 1 0; min-width: 64px; }
+.choice input { position: absolute; opacity: 0; pointer-events: none; }
+.choice span {
+  display: block;
+  text-align: center;
+  padding: 10px 8px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: pointer;
+  user-select: none;
+}
+.choice input:checked + span {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-text);
+  font-weight: 600;
+}
+
+button {
+  font: inherit;
+  font-weight: 600;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  min-height: 48px;
+  cursor: pointer;
+  background: var(--primary);
+  color: var(--primary-text);
+}
+#submit-btn { width: 100%; }
+button:disabled { opacity: 0.6; cursor: wait; }
+button.secondary {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--border);
+  min-height: 40px;
+  padding: 6px 12px;
+}
+
+.message { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; }
+.message.ok { background: var(--ok-bg); color: var(--ok-text); }
+.message.error { background: var(--err-bg); color: var(--err-text); }
+.message.info { color: var(--muted); padding-left: 0; }
+
+/* 清單 */
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.list-head h2 { margin: 0; }
+.request-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.request {
+  border-top: 1px solid var(--border);
+  padding: 12px 0;
+}
+.request:first-child { border-top: 0; }
+.request-top { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tag {
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.tag.urg-低 { color: var(--urg-low); border-color: currentColor; }
+.tag.urg-中 { color: var(--urg-mid); border-color: currentColor; }
+.tag.urg-高 { color: var(--urg-high); border-color: currentColor; font-weight: 600; }
+.request-desc { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.request-meta { margin: 0; font-size: 0.85rem; color: var(--muted); overflow-wrap: anywhere; }
