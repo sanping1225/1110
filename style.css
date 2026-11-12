@@ -304,3 +304,12 @@ body.has-savebar { padding-bottom: 96px; }
 .save-status { flex: 1; margin: 0; font-size: 0.9rem; color: var(--muted); }
 .save-status.dirty { color: var(--urg-mid); font-weight: 600; }
 .savebar button { flex: none; min-width: 120px; }
+
+/* PWA：安裝按鈕、離線提示 */
+.install-btn { margin-left: auto; }
+.offline-banner { margin: 0 0 12px; }
+
+/* 安裝成 App 後，避開瀏海與底部手勢區 */
+@media (display-mode: standalone) {
+  .site-header { padding-top: calc(16px + env(safe-area-inset-top)); }
+}
