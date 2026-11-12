@@ -4,37 +4,52 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>設計部代辦</title>
+  <title>設計部待辦</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="site-header">
     <nav class="site-nav" aria-label="頁面">
       <a href="index.html">報修登記</a>
-      <a href="design.html" aria-current="page">設計部代辦</a>
+      <a href="design.html" aria-current="page">設計部待辦</a>
     </nav>
-    <h1>設計部代辦</h1>
-    <p class="subtitle">點選事項可勾選完成或取消完成。</p>
+    <h1>設計部待辦</h1>
+    <p class="subtitle">選擇待辦類型、填寫內容後按「確認送出」，資料會保存並顯示在下方清單。</p>
   </header>
 
   <main>
-    <section class="card" aria-labelledby="todo-title">
+    <section class="card" aria-labelledby="form-title">
+      <h2 id="form-title">登錄待辦</h2>
+      <form id="task-form" novalidate>
+        <div class="field">
+          <label for="task_type">待辦類型</label>
+          <select id="task_type" name="task_type" required>
+            <option value="" selected disabled>請選擇</option>
+            <option value="待規劃案件">待規劃案件</option>
+            <option value="待計算數量案件">待計算數量案件</option>
+            <option value="計算書待計算案件">計算書待計算案件</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="content">內容</label>
+          <textarea id="content" name="content" rows="4" maxlength="1000" required
+                    placeholder="例如：案件名稱、編號、說明"></textarea>
+          <p class="hint"><span id="content-count">0</span> / 1000 字</p>
+        </div>
+
+        <button id="submit-btn" type="submit">確認送出</button>
+        <p id="form-message" class="message" role="status" aria-live="polite" hidden></p>
+      </form>
+    </section>
+
+    <section class="card" aria-labelledby="list-title">
       <div class="list-head">
-        <h2 id="todo-title">代辦事項</h2>
+        <h2 id="list-title">最近 20 筆登錄</h2>
         <button id="refresh-btn" type="button" class="secondary">重新整理</button>
       </div>
       <p id="list-message" class="message" role="status" aria-live="polite" hidden></p>
-      <ul id="todo-list" class="todo-list"></ul>
-    </section>
-
-    <section class="card" aria-labelledby="add-title">
-      <h2 id="add-title">新增代辦</h2>
-      <form id="todo-form" class="todo-form" novalidate>
-        <label for="item" class="visually-hidden">代辦事項</label>
-        <input id="item" name="item" type="text" maxlength="100" required placeholder="輸入代辦事項">
-        <button id="add-btn" type="submit">新增</button>
-      </form>
-      <p id="form-message" class="message" role="status" aria-live="polite" hidden></p>
+      <ul id="task-list" class="request-list"></ul>
     </section>
   </main>
 
