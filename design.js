@@ -1,7 +1,8 @@
 // 設計部待辦（條列式）
 // 選單：待規劃案件、待計算數量案件、已完成。
 //   待規劃案件每列有兩個勾選：圖面規劃完成、計算書完成；兩個都勾並送出後移到「已完成」。
-//     另有：修改次數、是否成交（已成交）、未成交原因。
+//     另有：修改次數、是否成交（已成交）、未成交原因、設計人員。
+// 頁面最下方顯示統計（設計案件總數等）。
 //   待計算數量案件每列一個勾選：已完成。
 // 按「確認送出」一次保存所有變更到 Supabase 的 design_items。
 (function () {
@@ -25,6 +26,7 @@
   const MAX_LEN = 500;
   const REASON_MAX = 200;
   const REV_MAX = 999;
+  const DESIGNER_MAX = 50;
 
   const menuEl = document.getElementById("menu");
   const titleEl = document.getElementById("panel-title");
@@ -35,6 +37,9 @@
   const reloadBtn = document.getElementById("reload-btn");
   const saveBtn = document.getElementById("save-btn");
   const saveStatus = document.getElementById("save-status");
+  const statsTotalEl = document.getElementById("stats-total");
+  const statsListEl = document.getElementById("stats-list");
+  const designerListEl = document.getElementById("designer-list");
 
   // ---------- 狀態 ----------
   // items：資料庫裡的資料；edit 開頭的欄位是畫面上尚未送出的修改
@@ -48,7 +53,7 @@
 
   function newDraft() {
     draftSeq += 1;
-    return { key: "d" + draftSeq, content: "", plan: false, calc: false, done: false, rev: 0, deal: false, reason: "" };
+    return { key: "d" + draftSeq, content: "", plan: false, calc: false, done: false, rev: 0, deal: false, reason: "", designer: "" };
   }
 
   function showMessage(el, text, kind) {
@@ -84,10 +89,10 @@
         return "資料表尚未建立：請在 Supabase SQL Editor 依序執行 supabase/design_items.sql、supabase/design_items_v2.sql。";
       case "42703":
       case "PGRST204":
-        return "資料表需要更新：請在 Supabase SQL Editor 執行 supabase/design_items_v3.sql（若尚未執行 v2，請先執行 design_items_v2.sql）。";
-      case "23514": return "內容不符合規定（每列 1～500 字、修改次數 0～999、未成交原因最多 200 字）。";
+        return "資料表需要更新：請在 Supabase SQL Editor 執行 supabase/design_items_v4.sql（若尚未執行 v2、v3，請先依序執行）。";
+      case "23514": return "內容不符合規定（每列 1～500 字、修改次數 0～999、未成交原因最多 200 字、設計人員最多 50 字）。";
       case "23502": return "有必填欄位沒有填寫。";
-      case "42501": return "沒有權限，請確認已執行 supabase/design_items_v3.sql。";
+      case "42501": return "沒有權限，請確認已執行 supabase/design_items_v4.sql。";
     }
     if (error.message && /fetch|network/i.test(error.message)) {
       return "連線失敗，請檢查網路後再試一次。";
@@ -101,7 +106,7 @@
     return it.done ? DONE_TAB : it.category;
   }
 
-  // 未成交原因：空白存成 null
+  // 未成交原因、設計人員：空白存成 null
   function reasonValue(v) {
     const t = (v || "").trim();
     return t ? t : null;
@@ -111,7 +116,8 @@
     return it.editContent.trim() !== it.content ||
       it.editPlan !== it.plan_done || it.editCalc !== it.calc_done || it.editDone !== it.done ||
       it.editRev !== it.revision_count || it.editDeal !== it.deal_closed ||
-      reasonValue(it.editReason) !== reasonValue(it.lost_reason);
+      reasonValue(it.editReason) !== reasonValue(it.lost_reason) ||
+      reasonValue(it.editDesigner) !== reasonValue(it.designer);
   }
 
   function draftToRow(tab, d) {
@@ -121,6 +127,7 @@
     return {
       category: PLAN, content: d.content.trim(), done: d.plan && d.calc, plan_done: d.plan, calc_done: d.calc,
       revision_count: d.rev, deal_closed: d.deal, lost_reason: reasonValue(d.reason),
+      designer: reasonValue(d.designer),
     };
   }
 
@@ -132,6 +139,7 @@
       body.revision_count = it.editRev;
       body.deal_closed = it.editDeal;
       body.lost_reason = reasonValue(it.editReason);
+      body.designer = reasonValue(it.editDesigner);
     }
     return body;
   }
@@ -156,6 +164,55 @@
     items.forEach((it) => { counts[tabOf(it)] += 1; });
     menuEl.querySelectorAll("[data-count]").forEach((el) => {
       el.textContent = String(counts[el.dataset.count]);
+    });
+  }
+
+  // ---------- 統計 ----------
+  // 依已保存的資料計算（不含尚未送出的變更）
+  function renderStats() {
+    const plan = items.filter((it) => it.category === PLAN);
+    const qty = items.filter((it) => it.category === QTY);
+    const doneCount = (list) => list.filter((it) => it.done).length;
+    statsTotalEl.textContent = String(items.length);
+
+    // 每列：[名稱, 件數, 補充說明]
+    const split = (list) => "進行中 " + (list.length - doneCount(list)) + "・已完成 " + doneCount(list);
+    const rows = [
+      ["待規劃案件", plan.length + " 件", split(plan)],
+      ["待計算數量案件", qty.length + " 件", split(qty)],
+      ["已成交", plan.filter((it) => it.deal_closed).length + " 件", ""],
+    ];
+    const byDesigner = new Map();
+    plan.forEach((it) => {
+      const name = (it.designer || "").trim() || "（未填）";
+      byDesigner.set(name, (byDesigner.get(name) || 0) + 1);
+    });
+    [...byDesigner.entries()]
+      // 件數多的在前；「（未填）」固定放最後
+      .sort((a, b) => (a[0] === "（未填）") - (b[0] === "（未填）") || b[1] - a[1] || a[0].localeCompare(b[0], "zh-Hant"))
+      .forEach(([name, n]) => rows.push(["設計人員：" + name, n + " 件"]));
+
+    statsListEl.replaceChildren();
+    rows.forEach(([k, v, sub]) => {
+      const dt = document.createElement("dt");
+      dt.textContent = k;
+      if (sub) {
+        const small = document.createElement("span");
+        small.className = "stats-sub";
+        small.textContent = sub;
+        dt.append(small);
+      }
+      const dd = document.createElement("dd");
+      dd.textContent = v;
+      statsListEl.append(dt, dd);
+    });
+
+    // 設計人員輸入建議
+    designerListEl.replaceChildren();
+    [...byDesigner.keys()].filter((n) => n !== "（未填）").forEach((n) => {
+      const opt = document.createElement("option");
+      opt.value = n;
+      designerListEl.append(opt);
     });
   }
 
@@ -281,7 +338,19 @@
       reason.addEventListener("input", () => { x.set("reason", reason.value); refresh(); });
       syncs.push(() => { reason.disabled = x.get("deal"); });
 
-      extrasEl.append(rev, dealLabel, reason);
+      // 設計人員（可從曾經輸入過的名字中挑選）
+      const designer = document.createElement("input");
+      designer.type = "text";
+      designer.maxLength = DESIGNER_MAX;
+      designer.className = "designer-input";
+      designer.placeholder = "設計人員";
+      designer.setAttribute("aria-label", "設計人員");
+      designer.setAttribute("list", "designer-list");
+      designer.autocomplete = "off";
+      designer.value = x.get("designer") || "";
+      designer.addEventListener("input", () => { x.set("designer", designer.value); refresh(); });
+
+      extrasEl.append(rev, dealLabel, reason, designer);
     }
 
     li.classList.toggle("checked", opts.isStruck());
@@ -333,7 +402,7 @@
 
   function itemRow(it, inDoneTab) {
     const isPlan = it.category === PLAN;
-    const key = { plan: "editPlan", calc: "editCalc", rev: "editRev", deal: "editDeal", reason: "editReason" };
+    const key = { plan: "editPlan", calc: "editCalc", rev: "editRev", deal: "editDeal", reason: "editReason", designer: "editDesigner" };
     return makeRow({
       value: it.editContent,
       tag: inDoneTab ? it.category : "",
@@ -385,7 +454,7 @@
     if (keepEdits) items.filter(itemChanged).forEach((it) => {
       edits[it.id] = {
         editContent: it.editContent, editPlan: it.editPlan, editCalc: it.editCalc, editDone: it.editDone,
-        editRev: it.editRev, editDeal: it.editDeal, editReason: it.editReason,
+        editRev: it.editRev, editDeal: it.editDeal, editReason: it.editReason, editDesigner: it.editDesigner,
       };
     });
     reloadBtn.disabled = true;
@@ -394,7 +463,7 @@
     try {
       const { data, error } = await db
         .from(TABLE)
-        .select("id, created_at, category, content, done, done_at, plan_done, calc_done, revision_count, deal_closed, lost_reason")
+        .select("id, created_at, category, content, done, done_at, plan_done, calc_done, revision_count, deal_closed, lost_reason, designer")
         .order("created_at", { ascending: true })
         .limit(1000);
       if (error) throw error;
@@ -402,16 +471,19 @@
         ...it,
         editContent: it.content, editPlan: it.plan_done, editCalc: it.calc_done, editDone: it.done,
         editRev: it.revision_count, editDeal: it.deal_closed, editReason: it.lost_reason || "",
+        editDesigner: it.designer || "",
         ...(edits[it.id] || {}),
       }));
       if (!keepEdits) EDIT_TABS.forEach((t) => { drafts[t] = []; });
       updateCounts();
+      renderStats();
       render();
       updateSaveStatus();
       saveBtn.disabled = false;
     } catch (err) {
       items = [];
       updateCounts();
+      renderStats();
       listEl.replaceChildren();
       showMessage(listMsg, "無法載入：" + friendlyError(err), "error");
     } finally {

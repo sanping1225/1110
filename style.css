@@ -352,3 +352,29 @@ button.stepper {
 .item-row input.reason-input { flex: 1 1 180px; min-width: 0; padding: 8px 12px; }
 .item-row input.reason-input:disabled { opacity: 0.5; }
 .item-row.checked input.reason-input { text-decoration: none; }
+
+/* 設計部待辦：設計人員、統計 */
+.item-row input.designer-input { flex: 1 1 140px; min-width: 0; padding: 8px 12px; }
+.item-row.checked input.designer-input { text-decoration: none; }
+
+.stats-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  background: var(--bg);
+}
+.stats-total-label { font-weight: 600; }
+.stats-total-num { font-size: 2rem; font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; }
+.stats-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+.stats-list dt { color: var(--muted); }
+.stats-list dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+.stats-sub { display: block; font-size: 0.82rem; }
