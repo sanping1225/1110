@@ -4,7 +4,7 @@
   "description": "設計部待辦事項：待規劃案件、待計算數量案件、計算書待計算案件。",
   "lang": "zh-Hant-TW",
   "id": "./",
-  "start_url": "./design.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

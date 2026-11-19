@@ -1,4 +1,4 @@
-/* 報修登記：手機優先的樣式，寬螢幕再放寬版面 */
+/* 設計部待辦：手機優先的樣式，寬螢幕再放寬版面 */
 :root {
   --bg: #f4f6f9;
   --card: #ffffff;
@@ -11,9 +11,7 @@
   --ok-text: #1e6b34;
   --err-bg: #fdecea;
   --err-text: #a1261b;
-  --urg-low: #4b7d4f;
   --urg-mid: #b07a12;
-  --urg-high: #b3261e;
   --radius: 10px;
 }
 
@@ -30,9 +28,7 @@
     --ok-text: #8fd6a4;
     --err-bg: #3a1a17;
     --err-text: #f2a39b;
-    --urg-low: #8cc490;
     --urg-mid: #e2b04f;
-    --urg-high: #f08a82;
   }
 }
 
@@ -69,12 +65,7 @@ h2 { margin: 0 0 12px; font-size: 1.2rem; }
 }
 
 /* 表單 */
-.field { margin: 0 0 16px; padding: 0; border: 0; min-width: 0; }
-.field > label,
-.field > legend { display: block; font-weight: 600; margin-bottom: 6px; padding: 0; }
-
-input[type="text"],
-textarea {
+input[type="text"] {
   width: 100%;
   /* 16px 以上可避免 iOS 點輸入框時自動放大 */
   font: inherit;
@@ -85,37 +76,10 @@ textarea {
   border-radius: 8px;
   padding: 12px;
 }
-textarea { resize: vertical; min-height: 110px; }
 input:focus-visible,
-textarea:focus-visible,
-button:focus-visible,
-.choice input:focus-visible + span {
+button:focus-visible {
   outline: 3px solid var(--primary);
   outline-offset: 2px;
-}
-
-.hint { margin: 4px 0 0; font-size: 0.85rem; color: var(--muted); text-align: right; }
-
-/* 類別、緊急程度：大按鈕式選項，手指好點 */
-.choices { display: flex; flex-wrap: wrap; gap: 8px; }
-.choice { flex: 1 1 0; min-width: 64px; }
-.choice input { position: absolute; opacity: 0; pointer-events: none; }
-.choice span {
-  display: block;
-  text-align: center;
-  padding: 10px 8px;
-  min-height: 44px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  cursor: pointer;
-  user-select: none;
-}
-.choice input:checked + span {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--primary-text);
-  font-weight: 600;
 }
 
 button {
@@ -129,7 +93,6 @@ button {
   background: var(--primary);
   color: var(--primary-text);
 }
-#submit-btn { width: 100%; }
 button:disabled { opacity: 0.6; cursor: wait; }
 button.secondary {
   background: transparent;
@@ -147,13 +110,6 @@ button.secondary {
 /* 清單 */
 .list-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .list-head h2 { margin: 0; }
-.request-list { list-style: none; margin: 12px 0 0; padding: 0; }
-.request {
-  border-top: 1px solid var(--border);
-  padding: 12px 0;
-}
-.request:first-child { border-top: 0; }
-.request-top { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .tag {
   font-size: 0.8rem;
   padding: 2px 8px;
@@ -161,11 +117,6 @@ button.secondary {
   border: 1px solid var(--border);
   white-space: nowrap;
 }
-.tag.urg-低 { color: var(--urg-low); border-color: currentColor; }
-.tag.urg-中 { color: var(--urg-mid); border-color: currentColor; }
-.tag.urg-高 { color: var(--urg-high); border-color: currentColor; font-weight: 600; }
-.request-desc { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.request-meta { margin: 0; font-size: 0.85rem; color: var(--muted); overflow-wrap: anywhere; }
 
 /* 頁面切換 */
 .site-nav { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -184,11 +135,6 @@ button.secondary {
   border-color: var(--primary);
   color: var(--primary-text);
   font-weight: 600;
-}
-
-.visually-hidden {
-  position: absolute; width: 1px; height: 1px; margin: -1px;
-  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
 /* 設計部待辦 */

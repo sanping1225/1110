@@ -4,89 +4,77 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>報修登記</title>
+  <title>設計部待辦</title>
   <meta name="theme-color" content="#2459a6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="報修登記">
+  <meta name="apple-mobile-web-app-title" content="設計部待辦">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="has-savebar">
   <header class="site-header">
     <nav class="site-nav" aria-label="頁面">
-      <a href="index.html" aria-current="page">報修登記</a>
-      <a href="design.html">設計部待辦</a>
+      <a href="./" aria-current="page">設計部待辦</a>
       <button id="install-btn" type="button" class="secondary install-btn" hidden>安裝 App</button>
     </nav>
     <p id="offline-banner" class="message error offline-banner" role="status" hidden>目前離線：畫面可以開啟，但讀取與送出資料需要網路。</p>
-    <h1>報修登記</h1>
-    <p class="subtitle">填寫下方表單送出報修，清單會顯示最近 20 筆。</p>
+    <h1>設計部待辦</h1>
+    <p class="subtitle">從選單選擇項目，逐列填寫內容並勾選完成狀態，最後按「確認送出」保存。</p>
   </header>
 
   <main>
-    <section class="card" aria-labelledby="form-title">
-      <h2 id="form-title">新增報修</h2>
-      <form id="repair-form" novalidate>
-        <div class="field">
-          <label for="reporter_name">報修人</label>
-          <input id="reporter_name" name="reporter_name" type="text" maxlength="50"
-                 autocomplete="name" required>
-        </div>
+    <div id="menu" class="menu" role="tablist" aria-label="待辦項目">
+      <button type="button" role="tab" class="menu-item" data-tab="待規劃案件">
+        <span class="menu-name">待規劃案件</span><span class="menu-count" data-count="待規劃案件">0</span>
+      </button>
+      <button type="button" role="tab" class="menu-item" data-tab="待計算數量案件">
+        <span class="menu-name">待計算數量案件</span><span class="menu-count" data-count="待計算數量案件">0</span>
+      </button>
+      <button type="button" role="tab" class="menu-item menu-done" data-tab="已完成">
+        <span class="menu-name">已完成</span><span class="menu-count" data-count="已完成">0</span>
+      </button>
+    </div>
 
-        <div class="field">
-          <label for="location">地點或部門</label>
-          <input id="location" name="location" type="text" maxlength="100" required>
-        </div>
-
-        <fieldset class="field">
-          <legend>類別</legend>
-          <div class="choices">
-            <label class="choice"><input type="radio" name="category" value="設備" required><span>設備</span></label>
-            <label class="choice"><input type="radio" name="category" value="網路"><span>網路</span></label>
-            <label class="choice"><input type="radio" name="category" value="環境"><span>環境</span></label>
-            <label class="choice"><input type="radio" name="category" value="其他"><span>其他</span></label>
-          </div>
-        </fieldset>
-
-        <div class="field">
-          <label for="description">問題說明</label>
-          <textarea id="description" name="description" rows="4" maxlength="1000" required></textarea>
-          <p class="hint"><span id="desc-count">0</span> / 1000 字</p>
-        </div>
-
-        <fieldset class="field">
-          <legend>緊急程度</legend>
-          <div class="choices">
-            <label class="choice"><input type="radio" name="urgency" value="低"><span>低</span></label>
-            <label class="choice"><input type="radio" name="urgency" value="中" checked><span>中</span></label>
-            <label class="choice"><input type="radio" name="urgency" value="高"><span>高</span></label>
-          </div>
-        </fieldset>
-
-        <button id="submit-btn" type="submit">送出報修</button>
-        <p id="form-message" class="message" role="status" aria-live="polite" hidden></p>
-      </form>
-    </section>
-
-    <section class="card" aria-labelledby="list-title">
+    <section class="card" role="tabpanel" aria-labelledby="panel-title">
       <div class="list-head">
-        <h2 id="list-title">最近 20 筆報修</h2>
-        <button id="refresh-btn" type="button" class="secondary">重新整理</button>
+        <h2 id="panel-title">待規劃案件</h2>
+        <button id="reload-btn" type="button" class="secondary">重新整理</button>
       </div>
+      <p id="panel-hint" class="hint-left"></p>
       <p id="list-message" class="message" role="status" aria-live="polite" hidden></p>
-      <ul id="request-list" class="request-list"></ul>
+      <ol id="item-list" class="item-list"></ol>
+      <button id="add-row-btn" type="button" class="secondary add-row">＋ 新增一列</button>
     </section>
+
+    <section class="card stats" aria-labelledby="stats-title">
+      <h2 id="stats-title">統計</h2>
+      <div class="stats-total">
+        <span class="stats-total-label">設計案件總數</span>
+        <span id="stats-total" class="stats-total-num">0</span>
+      </div>
+      <dl id="stats-list" class="stats-list"></dl>
+      <p class="hint-left">依已送出的資料統計；尚未送出的變更不計入。</p>
+    </section>
+    <datalist id="designer-list"></datalist>
+    <datalist id="sales-list"></datalist>
   </main>
+
+  <div class="savebar">
+    <div class="savebar-inner">
+      <p id="save-status" class="save-status" role="status" aria-live="polite">沒有未儲存的變更</p>
+      <button id="save-btn" type="button">確認送出</button>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"
           integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK"
           crossorigin="anonymous"></script>
   <script src="config.js"></script>
   <script src="pwa.js"></script>
-  <script src="app.js"></script>
+  <script src="design.js"></script>
 </body>
 </html>

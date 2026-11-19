@@ -6,14 +6,13 @@
 //   - CDN 上固定版本的 supabase-js：先用快取（檔案不會變）。
 //   - Supabase 資料 API：一律不快取，永遠向伺服器讀寫。
 // 修改本站檔案後不需要改這裡；只有要強制清除舊快取時才把版本號加一。
-const CACHE = "repair-app-v2";
+const CACHE = "design-app-v3";
 
 const APP_SHELL = [
   "./",
   "./index.html",
   "./design.html",
   "./style.css",
-  "./app.js",
   "./design.js",
   "./config.js",
   "./pwa.js",
@@ -52,9 +51,9 @@ async function networkFirst(request) {
   } catch (err) {
     const cached = await cache.match(request, { ignoreSearch: true });
     if (cached) return cached;
-    // 離線時開啟沒快取過的頁面，退回設計部待辦
+    // 離線時開啟沒快取過的頁面，退回首頁（設計部待辦）
     if (request.mode === "navigate") {
-      const home = await cache.match("./design.html");
+      const home = await cache.match("./index.html");
       if (home) return home;
     }
     throw err;
