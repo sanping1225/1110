@@ -97,13 +97,14 @@
     switch (error.code) {
       case "PGRST205":
       case "42P01":
-        return "資料表尚未建立：請在 Supabase SQL Editor 依序執行 supabase/design_items.sql、supabase/design_items_v2.sql。";
+        return "資料表尚未建立：請在 Supabase SQL Editor 執行 supabase/design_items_all.sql。";
       case "42703":
       case "PGRST204":
-        return "資料表需要更新：請在 Supabase SQL Editor 執行 supabase/design_items_v5.sql（若尚未執行 v2～v4，請先依序執行）。";
+        return "資料表需要更新：請在 Supabase SQL Editor 執行 supabase/design_items_all.sql。" +
+          (error.message ? "（" + error.message + "）" : "");
       case "23514": return "內容不符合規定（每列 1～500 字、修改次數 0～999、未成交原因最多 200 字、設計人員與業務人員最多 50 字）。";
       case "23502": return "有必填欄位沒有填寫。";
-      case "42501": return "沒有權限，請確認已執行 supabase/design_items_v5.sql。";
+      case "42501": return "沒有權限，請確認已執行 supabase/design_items_all.sql。";
     }
     if (error.message && /fetch|network/i.test(error.message)) {
       return "連線失敗，請檢查網路後再試一次。";
