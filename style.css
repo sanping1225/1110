@@ -209,20 +209,15 @@ select:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
 /* 設計部待辦：選單 */
 .menu {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 16px;
 }
-.menu-group { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-/* 子項目：縮排、較小，表示屬於上面的「待規劃案件」 */
-.menu-item.menu-sub {
-  margin-left: 14px;
-  min-height: 44px;
-  font-weight: 500;
-  font-size: 0.92rem;
-  border-style: dashed;
+/* 手機：前兩個並排，「已完成」獨占一列，避免文字擠成好幾行 */
+@media (max-width: 559px) {
+  .menu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .menu-item.menu-done { grid-column: 1 / -1; min-height: 46px; }
 }
-.menu-item.menu-sub.active { border-style: solid; }
 .menu-item {
   display: flex;
   align-items: center;

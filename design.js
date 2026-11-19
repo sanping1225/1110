@@ -1,8 +1,6 @@
 // 設計部待辦（條列式）
-// 選單：待規劃案件（子項目：計算書待計算案件）、待計算數量案件、已完成。
-//   待規劃案件每列有兩個勾選：圖面規劃完成、計算書完成。
-//     只勾「圖面規劃完成」→ 送出後移到子項目「計算書待計算案件」。
-//     兩個都勾 → 送出後移到「已完成」。
+// 選單：待規劃案件、待計算數量案件、已完成。
+//   待規劃案件每列有兩個勾選：圖面規劃完成、計算書完成；兩個都勾並送出後移到「已完成」。
 //   待計算數量案件每列一個勾選：已完成。
 // 按「確認送出」一次保存所有變更到 Supabase 的 design_items。
 (function () {
@@ -10,19 +8,16 @@
 
   const TABLE = "design_items";
   const PLAN = "待規劃案件";
-  const CALC_SUB = "計算書待計算案件"; // 待規劃案件的子項目（畫面分類，不是資料庫的 category）
   const QTY = "待計算數量案件";
   const DONE_TAB = "已完成";
-  const EDIT_TABS = [PLAN, CALC_SUB, QTY];
+  const EDIT_TABS = [PLAN, QTY];
   const TITLES = {
     [PLAN]: "待規劃案件",
-    [CALC_SUB]: "待規劃案件 › 計算書待計算案件",
     [QTY]: "待計算數量案件",
     [DONE_TAB]: "已完成",
   };
   const HINTS = {
-    [PLAN]: "每列填一件事。勾「圖面規劃完成」送出後移到「計算書待計算案件」；兩個都勾送出後移到「已完成」。",
-    [CALC_SUB]: "圖面規劃已完成、等待計算書的案件。勾「計算書完成」並送出後移到「已完成」。",
+    [PLAN]: "每列填一件事；「圖面規劃完成」「計算書完成」兩個都勾並送出後，會移到「已完成」。",
     [QTY]: "每列填一件事；勾選「已完成」並送出後，會移到「已完成」。",
     [DONE_TAB]: "取消勾選並按「確認送出」，可移回原本的項目。",
   };
@@ -48,10 +43,9 @@
   let currentTab = PLAN;
   let saving = false;
 
-  // 新列的預設勾選：在子項目新增的列，代表圖面規劃已完成
-  function newDraft(tab) {
+  function newDraft() {
     draftSeq += 1;
-    return { key: "d" + draftSeq, content: "", plan: tab === CALC_SUB, calc: false, done: false };
+    return { key: "d" + draftSeq, content: "", plan: false, calc: false, done: false };
   }
 
   function showMessage(el, text, kind) {
@@ -101,9 +95,7 @@
   // ---------- 分類與變更 ----------
   // 依「已保存」的狀態決定顯示在哪個分頁（勾選後要按送出才會移動）
   function tabOf(it) {
-    if (it.done) return DONE_TAB;
-    if (it.category === PLAN && it.plan_done) return CALC_SUB;
-    return it.category;
+    return it.done ? DONE_TAB : it.category;
   }
 
   function itemChanged(it) {
@@ -141,7 +133,7 @@
   }
 
   function updateCounts() {
-    const counts = { [PLAN]: 0, [CALC_SUB]: 0, [QTY]: 0, [DONE_TAB]: 0 };
+    const counts = { [PLAN]: 0, [QTY]: 0, [DONE_TAB]: 0 };
     items.forEach((it) => { counts[tabOf(it)] += 1; });
     menuEl.querySelectorAll("[data-count]").forEach((el) => {
       el.textContent = String(counts[el.dataset.count]);
@@ -239,7 +231,7 @@
   }
 
   function addDraft(tab, focus) {
-    const d = newDraft(tab);
+    const d = newDraft();
     drafts[tab].push(d);
     if (currentTab === tab) {
       const row = draftRow(tab, d);
@@ -290,7 +282,7 @@
     addRowBtn.hidden = false;
     hideMessage(listMsg);
     items.filter((it) => tabOf(it) === currentTab).forEach((it) => listEl.append(itemRow(it, false)));
-    if (!drafts[currentTab].length) drafts[currentTab].push(newDraft(currentTab));
+    if (!drafts[currentTab].length) drafts[currentTab].push(newDraft());
     drafts[currentTab].forEach((d) => listEl.append(draftRow(currentTab, d).li));
   }
 
