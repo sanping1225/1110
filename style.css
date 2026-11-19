@@ -213,9 +213,16 @@ select:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
   gap: 8px;
   margin-bottom: 16px;
 }
-@media (min-width: 640px) {
-  .menu { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.menu-group { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+/* 子項目：縮排、較小，表示屬於上面的「待規劃案件」 */
+.menu-item.menu-sub {
+  margin-left: 14px;
+  min-height: 44px;
+  font-weight: 500;
+  font-size: 0.92rem;
+  border-style: dashed;
 }
+.menu-item.menu-sub.active { border-style: solid; }
 .menu-item {
   display: flex;
   align-items: center;
@@ -253,10 +260,14 @@ select:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
 .item-list { margin: 12px 0 0; padding: 0; list-style: none; counter-reset: item; }
 .item-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding: 6px 0;
+  gap: 4px 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
 }
+.item-row:first-child { border-top: 0; }
+.item-checks { display: flex; flex-wrap: wrap; gap: 0 14px; margin-left: auto; }
 .item-row::before {
   counter-increment: item;
   content: counter(item) ".";
@@ -265,7 +276,7 @@ select:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
   color: var(--muted);
   text-align: right;
 }
-.item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.item-main { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .item-main .tag { align-self: flex-start; }
 .item-row input[type="text"] { padding: 10px 12px; }
 .item-row.changed input[type="text"] { border-color: var(--primary); }

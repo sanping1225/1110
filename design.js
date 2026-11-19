@@ -1,12 +1,31 @@
-// 設計部待辦（條列式）：
-// 選單切換三個待辦項目與「已完成」；每個項目逐列填寫、勾選已完成；
+// 設計部待辦（條列式）
+// 選單：待規劃案件（子項目：計算書待計算案件）、待計算數量案件、已完成。
+//   待規劃案件每列有兩個勾選：圖面規劃完成、計算書完成。
+//     只勾「圖面規劃完成」→ 送出後移到子項目「計算書待計算案件」。
+//     兩個都勾 → 送出後移到「已完成」。
+//   待計算數量案件每列一個勾選：已完成。
 // 按「確認送出」一次保存所有變更到 Supabase 的 design_items。
 (function () {
   "use strict";
 
   const TABLE = "design_items";
-  const CATEGORIES = ["待規劃案件", "待計算數量案件", "計算書待計算案件"];
+  const PLAN = "待規劃案件";
+  const CALC_SUB = "計算書待計算案件"; // 待規劃案件的子項目（畫面分類，不是資料庫的 category）
+  const QTY = "待計算數量案件";
   const DONE_TAB = "已完成";
+  const EDIT_TABS = [PLAN, CALC_SUB, QTY];
+  const TITLES = {
+    [PLAN]: "待規劃案件",
+    [CALC_SUB]: "待規劃案件 › 計算書待計算案件",
+    [QTY]: "待計算數量案件",
+    [DONE_TAB]: "已完成",
+  };
+  const HINTS = {
+    [PLAN]: "每列填一件事。勾「圖面規劃完成」送出後移到「計算書待計算案件」；兩個都勾送出後移到「已完成」。",
+    [CALC_SUB]: "圖面規劃已完成、等待計算書的案件。勾「計算書完成」並送出後移到「已完成」。",
+    [QTY]: "每列填一件事；勾選「已完成」並送出後，會移到「已完成」。",
+    [DONE_TAB]: "取消勾選並按「確認送出」，可移回原本的項目。",
+  };
   const MAX_LEN = 500;
 
   const menuEl = document.getElementById("menu");
@@ -20,18 +39,19 @@
   const saveStatus = document.getElementById("save-status");
 
   // ---------- 狀態 ----------
-  // items：資料庫裡的資料，每筆另外記錄畫面上的修改（editContent、editDone）
-  // drafts：每個項目還沒存進資料庫的新列
+  // items：資料庫裡的資料；edit 開頭的欄位是畫面上尚未送出的修改
+  // drafts：各分頁還沒存進資料庫的新列
   let items = [];
   const drafts = {};
-  CATEGORIES.forEach((c) => { drafts[c] = []; });
+  EDIT_TABS.forEach((t) => { drafts[t] = []; });
   let draftSeq = 0;
-  let currentTab = CATEGORIES[0];
+  let currentTab = PLAN;
   let saving = false;
 
-  function newDraft() {
+  // 新列的預設勾選：在子項目新增的列，代表圖面規劃已完成
+  function newDraft(tab) {
     draftSeq += 1;
-    return { key: "d" + draftSeq, content: "", done: false };
+    return { key: "d" + draftSeq, content: "", plan: tab === CALC_SUB, calc: false, done: false };
   }
 
   function showMessage(el, text, kind) {
@@ -64,10 +84,13 @@
     switch (error.code) {
       case "PGRST205":
       case "42P01":
-        return "資料表尚未建立：請在 Supabase SQL Editor 執行 supabase/design_items.sql。";
-      case "23514": return "內容不符合規定（每列 1～500 字）。";
+        return "資料表尚未建立：請在 Supabase SQL Editor 依序執行 supabase/design_items.sql、supabase/design_items_v2.sql。";
+      case "42703":
+      case "PGRST204":
+        return "資料表需要更新：請在 Supabase SQL Editor 執行 supabase/design_items_v2.sql。";
+      case "23514": return "內容不符合規定（每列 1～500 字）。若剛更新過，請確認已執行 supabase/design_items_v2.sql。";
       case "23502": return "有必填欄位沒有填寫。";
-      case "42501": return "沒有權限，請確認已執行 supabase/design_items.sql。";
+      case "42501": return "沒有權限，請確認已執行 supabase/design_items_v2.sql。";
     }
     if (error.message && /fetch|network/i.test(error.message)) {
       return "連線失敗，請檢查網路後再試一次。";
@@ -75,21 +98,39 @@
     return error.message || "請稍後再試。";
   }
 
-  // ---------- 變更計算 ----------
+  // ---------- 分類與變更 ----------
+  // 依「已保存」的狀態決定顯示在哪個分頁（勾選後要按送出才會移動）
+  function tabOf(it) {
+    if (it.done) return DONE_TAB;
+    if (it.category === PLAN && it.plan_done) return CALC_SUB;
+    return it.category;
+  }
+
   function itemChanged(it) {
-    return it.editContent.trim() !== it.content || it.editDone !== it.done;
+    return it.editContent.trim() !== it.content ||
+      it.editPlan !== it.plan_done || it.editCalc !== it.calc_done || it.editDone !== it.done;
+  }
+
+  function draftToRow(tab, d) {
+    if (tab === QTY) {
+      return { category: QTY, content: d.content.trim(), done: d.done, plan_done: false, calc_done: false };
+    }
+    return { category: PLAN, content: d.content.trim(), done: d.plan && d.calc, plan_done: d.plan, calc_done: d.calc };
+  }
+
+  function updateBody(it) {
+    const body = { content: it.editContent.trim(), plan_done: it.editPlan, calc_done: it.editCalc };
+    // 待規劃案件的 done 由資料庫依兩個勾選自動判斷；這裡也送一樣的值
+    body.done = it.category === PLAN ? it.editPlan && it.editCalc : it.editDone;
+    return body;
   }
 
   function pendingChanges() {
     const inserts = [];
-    CATEGORIES.forEach((c) => {
-      drafts[c].forEach((d) => {
-        const content = d.content.trim();
-        if (content) inserts.push({ category: c, content, done: d.done });
-      });
+    EDIT_TABS.forEach((t) => {
+      drafts[t].forEach((d) => { if (d.content.trim()) inserts.push(draftToRow(t, d)); });
     });
-    const updates = items.filter(itemChanged);
-    return { inserts, updates };
+    return { inserts, updates: items.filter(itemChanged) };
   }
 
   function updateSaveStatus() {
@@ -100,12 +141,8 @@
   }
 
   function updateCounts() {
-    const counts = { [DONE_TAB]: 0 };
-    CATEGORIES.forEach((c) => { counts[c] = 0; });
-    items.forEach((it) => {
-      if (it.done) counts[DONE_TAB] += 1;
-      else counts[it.category] += 1;
-    });
+    const counts = { [PLAN]: 0, [CALC_SUB]: 0, [QTY]: 0, [DONE_TAB]: 0 };
+    items.forEach((it) => { counts[tabOf(it)] += 1; });
     menuEl.querySelectorAll("[data-count]").forEach((el) => {
       el.textContent = String(counts[el.dataset.count]);
     });
@@ -116,8 +153,8 @@
     month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
   });
 
+  // opts: { value, placeholder, tag, meta, checks: [{label, get, set}], onInput, isChanged, isStruck }
   function makeRow(opts) {
-    // opts: { value, checked, tag, meta, onInput, onCheck, placeholder }
     const li = document.createElement("li");
     li.className = "item-row";
 
@@ -135,11 +172,6 @@
     input.value = opts.value;
     input.placeholder = opts.placeholder || "填寫內容";
     input.setAttribute("aria-label", "內容");
-    input.addEventListener("input", () => {
-      opts.onInput(input.value);
-      li.classList.toggle("changed", opts.isChanged());
-      updateSaveStatus();
-    });
     main.append(input);
     if (opts.meta) {
       const meta = document.createElement("span");
@@ -148,64 +180,87 @@
       main.append(meta);
     }
 
-    const label = document.createElement("label");
-    label.className = "done-toggle";
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.checked = opts.checked;
-    box.addEventListener("change", () => {
-      opts.onCheck(box.checked);
-      li.classList.toggle("checked", box.checked);
+    const checks = document.createElement("div");
+    checks.className = "item-checks";
+
+    function refresh() {
+      li.classList.toggle("checked", opts.isStruck());
       li.classList.toggle("changed", opts.isChanged());
       updateSaveStatus();
-    });
-    const text = document.createElement("span");
-    text.textContent = "已完成";
-    label.append(box, text);
+    }
 
-    li.classList.toggle("checked", opts.checked);
+    input.addEventListener("input", () => { opts.onInput(input.value); refresh(); });
+
+    opts.checks.forEach((c) => {
+      const label = document.createElement("label");
+      label.className = "done-toggle";
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = c.get();
+      box.addEventListener("change", () => { c.set(box.checked); refresh(); });
+      const text = document.createElement("span");
+      text.textContent = c.label;
+      label.append(box, text);
+      checks.append(label);
+    });
+
+    li.classList.toggle("checked", opts.isStruck());
     li.classList.toggle("changed", opts.isChanged());
-    li.append(main, label);
+    li.append(main, checks);
     return { li, input };
   }
 
-  function draftRow(category, d) {
+  // 依項目決定要顯示哪些勾選
+  function planChecks(get, set) {
+    return [
+      { label: "圖面規劃完成", get: () => get("plan"), set: (v) => set("plan", v) },
+      { label: "計算書完成", get: () => get("calc"), set: (v) => set("calc", v) },
+    ];
+  }
+
+  function draftRow(tab, d) {
     const row = makeRow({
       value: d.content,
-      checked: d.done,
       placeholder: "新增一列…",
+      checks: tab === QTY
+        ? [{ label: "已完成", get: () => d.done, set: (v) => { d.done = v; } }]
+        : planChecks((k) => d[k], (k, v) => { d[k] = v; }),
       onInput: (v) => {
         d.content = v;
         // 在最後一列輸入時，自動補一列空白，方便繼續條列
-        const list = drafts[category];
-        if (v.trim() && list[list.length - 1] === d) addDraft(category, false);
+        const list = drafts[tab];
+        if (v.trim() && list[list.length - 1] === d) addDraft(tab, false);
       },
-      onCheck: (v) => { d.done = v; },
       isChanged: () => d.content.trim() !== "",
+      isStruck: () => (tab === QTY ? d.done : d.plan && d.calc),
     });
     row.li.classList.add("draft");
     return row;
   }
 
-  function addDraft(category, focus) {
-    const d = newDraft();
-    drafts[category].push(d);
-    if (currentTab === category) {
-      const row = draftRow(category, d);
+  function addDraft(tab, focus) {
+    const d = newDraft(tab);
+    drafts[tab].push(d);
+    if (currentTab === tab) {
+      const row = draftRow(tab, d);
       listEl.append(row.li);
       if (focus) row.input.focus();
     }
   }
 
-  function itemRow(it, showCategory) {
+  function itemRow(it, inDoneTab) {
+    const isPlan = it.category === PLAN;
+    const key = { plan: "editPlan", calc: "editCalc" };
     return makeRow({
       value: it.editContent,
-      checked: it.editDone,
-      tag: showCategory ? it.category : "",
-      meta: showCategory && it.done_at ? "完成於 " + timeFmt.format(new Date(it.done_at)) : "",
+      tag: inDoneTab ? it.category : "",
+      meta: inDoneTab && it.done_at ? "完成於 " + timeFmt.format(new Date(it.done_at)) : "",
+      checks: isPlan
+        ? planChecks((k) => it[key[k]], (k, v) => { it[key[k]] = v; })
+        : [{ label: "已完成", get: () => it.editDone, set: (v) => { it.editDone = v; } }],
       onInput: (v) => { it.editContent = v; },
-      onCheck: (v) => { it.editDone = v; },
       isChanged: () => itemChanged(it),
+      isStruck: () => (isPlan ? it.editPlan && it.editCalc : it.editDone),
     }).li;
   }
 
@@ -215,13 +270,13 @@
       b.classList.toggle("active", active);
       b.setAttribute("aria-selected", String(active));
     });
-    titleEl.textContent = currentTab;
+    titleEl.textContent = TITLES[currentTab];
+    hintEl.textContent = HINTS[currentTab];
     listEl.replaceChildren();
 
     if (currentTab === DONE_TAB) {
-      hintEl.textContent = "取消勾選並按「確認送出」，可移回原本的項目。";
       addRowBtn.hidden = true;
-      const done = items.filter((it) => it.done);
+      const done = items.filter((it) => tabOf(it) === DONE_TAB);
       if (!done.length) {
         showMessage(listMsg, "目前沒有已完成的項目。", "info");
         return;
@@ -232,12 +287,10 @@
       return;
     }
 
-    hintEl.textContent = "每列填一件事；勾選「已完成」並送出後，會移到「已完成」。";
     addRowBtn.hidden = false;
     hideMessage(listMsg);
-    items.filter((it) => it.category === currentTab && !it.done)
-      .forEach((it) => listEl.append(itemRow(it, false)));
-    if (!drafts[currentTab].length) drafts[currentTab].push(newDraft());
+    items.filter((it) => tabOf(it) === currentTab).forEach((it) => listEl.append(itemRow(it, false)));
+    if (!drafts[currentTab].length) drafts[currentTab].push(newDraft(currentTab));
     drafts[currentTab].forEach((d) => listEl.append(draftRow(currentTab, d).li));
   }
 
@@ -246,7 +299,7 @@
   async function load(keepEdits) {
     const edits = {};
     if (keepEdits) items.filter(itemChanged).forEach((it) => {
-      edits[it.id] = { editContent: it.editContent, editDone: it.editDone };
+      edits[it.id] = { editContent: it.editContent, editPlan: it.editPlan, editCalc: it.editCalc, editDone: it.editDone };
     });
     reloadBtn.disabled = true;
     saveBtn.disabled = true;
@@ -254,14 +307,16 @@
     try {
       const { data, error } = await db
         .from(TABLE)
-        .select("id, created_at, category, content, done, done_at")
+        .select("id, created_at, category, content, done, done_at, plan_done, calc_done")
         .order("created_at", { ascending: true })
         .limit(1000);
       if (error) throw error;
       items = (data || []).map((it) => ({
-        ...it, editContent: it.content, editDone: it.done, ...(edits[it.id] || {}),
+        ...it,
+        editContent: it.content, editPlan: it.plan_done, editCalc: it.calc_done, editDone: it.done,
+        ...(edits[it.id] || {}),
       }));
-      if (!keepEdits) CATEGORIES.forEach((c) => { drafts[c] = []; });
+      if (!keepEdits) EDIT_TABS.forEach((t) => { drafts[t] = []; });
       updateCounts();
       render();
       updateSaveStatus();
@@ -283,9 +338,8 @@
       saveStatus.textContent = "沒有需要送出的變更";
       return;
     }
-    const emptied = updates.filter((it) => !it.editContent.trim());
-    if (emptied.length) {
-      showMessage(listMsg, "已存在的列不能清空；不需要的項目請勾選「已完成」。", "error");
+    if (updates.some((it) => !it.editContent.trim())) {
+      showMessage(listMsg, "已存在的列不能清空；不需要的項目請勾選完成。", "error");
       return;
     }
 
@@ -298,13 +352,11 @@
         const { error } = await db.from(TABLE).insert(inserts);
         if (error) throw error;
         // 新列已保存，清掉草稿，避免之後重送時重複新增
-        CATEGORIES.forEach((c) => { drafts[c] = []; });
+        EDIT_TABS.forEach((t) => { drafts[t] = []; });
         insertedOk = true;
       }
       const results = await Promise.all(updates.map((it) =>
-        db.from(TABLE)
-          .update({ content: it.editContent.trim(), done: it.editDone })
-          .eq("id", it.id)
+        db.from(TABLE).update(updateBody(it)).eq("id", it.id)
       ));
       const failed = results.find((r) => r.error);
       if (failed) throw failed.error;
