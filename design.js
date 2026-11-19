@@ -1,7 +1,8 @@
 // 設計部待辦（條列式）
 // 選單：待規劃案件、待計算數量案件、已完成。
 //   待規劃案件每列有兩個勾選：圖面規劃完成、計算書完成；兩個都勾並送出後移到「已完成」。
-//     另有：修改次數、是否成交（已成交）、未成交原因、設計人員。
+//     另有：修改次數、是否成交（已成交）、未成交原因、設計人員、業務人員、
+//           架型勾選（重型架、輕型架、標準架、系統模）。
 // 頁面最下方顯示統計（設計案件總數等）。
 //   待計算數量案件每列一個勾選：已完成。
 // 按「確認送出」一次保存所有變更到 Supabase 的 design_items。
@@ -27,6 +28,14 @@
   const REASON_MAX = 200;
   const REV_MAX = 999;
   const DESIGNER_MAX = 50;
+  const SALES_MAX = 50;
+  // 架型勾選：k＝草稿欄位、col＝資料庫欄位、edit＝畫面修改中的欄位
+  const RACKS = [
+    { k: "heavy", col: "heavy_rack", edit: "editHeavy", label: "重型架" },
+    { k: "light", col: "light_rack", edit: "editLight", label: "輕型架" },
+    { k: "standard", col: "standard_rack", edit: "editStandard", label: "標準架" },
+    { k: "sysform", col: "system_form", edit: "editSysform", label: "系統模" },
+  ];
 
   const menuEl = document.getElementById("menu");
   const titleEl = document.getElementById("panel-title");
@@ -40,6 +49,7 @@
   const statsTotalEl = document.getElementById("stats-total");
   const statsListEl = document.getElementById("stats-list");
   const designerListEl = document.getElementById("designer-list");
+  const salesListEl = document.getElementById("sales-list");
 
   // ---------- 狀態 ----------
   // items：資料庫裡的資料；edit 開頭的欄位是畫面上尚未送出的修改
@@ -53,7 +63,8 @@
 
   function newDraft() {
     draftSeq += 1;
-    return { key: "d" + draftSeq, content: "", plan: false, calc: false, done: false, rev: 0, deal: false, reason: "", designer: "" };
+    return { key: "d" + draftSeq, content: "", plan: false, calc: false, done: false, rev: 0, deal: false, reason: "", designer: "", sales: "",
+      heavy: false, light: false, standard: false, sysform: false };
   }
 
   function showMessage(el, text, kind) {
@@ -89,10 +100,10 @@
         return "資料表尚未建立：請在 Supabase SQL Editor 依序執行 supabase/design_items.sql、supabase/design_items_v2.sql。";
       case "42703":
       case "PGRST204":
-        return "資料表需要更新：請在 Supabase SQL Editor 執行 supabase/design_items_v4.sql（若尚未執行 v2、v3，請先依序執行）。";
-      case "23514": return "內容不符合規定（每列 1～500 字、修改次數 0～999、未成交原因最多 200 字、設計人員最多 50 字）。";
+        return "資料表需要更新：請在 Supabase SQL Editor 執行 supabase/design_items_v5.sql（若尚未執行 v2～v4，請先依序執行）。";
+      case "23514": return "內容不符合規定（每列 1～500 字、修改次數 0～999、未成交原因最多 200 字、設計人員與業務人員最多 50 字）。";
       case "23502": return "有必填欄位沒有填寫。";
-      case "42501": return "沒有權限，請確認已執行 supabase/design_items_v4.sql。";
+      case "42501": return "沒有權限，請確認已執行 supabase/design_items_v5.sql。";
     }
     if (error.message && /fetch|network/i.test(error.message)) {
       return "連線失敗，請檢查網路後再試一次。";
@@ -117,7 +128,9 @@
       it.editPlan !== it.plan_done || it.editCalc !== it.calc_done || it.editDone !== it.done ||
       it.editRev !== it.revision_count || it.editDeal !== it.deal_closed ||
       reasonValue(it.editReason) !== reasonValue(it.lost_reason) ||
-      reasonValue(it.editDesigner) !== reasonValue(it.designer);
+      reasonValue(it.editDesigner) !== reasonValue(it.designer) ||
+      reasonValue(it.editSales) !== reasonValue(it.sales_person) ||
+      RACKS.some((r) => it[r.edit] !== it[r.col]);
   }
 
   function draftToRow(tab, d) {
@@ -127,7 +140,8 @@
     return {
       category: PLAN, content: d.content.trim(), done: d.plan && d.calc, plan_done: d.plan, calc_done: d.calc,
       revision_count: d.rev, deal_closed: d.deal, lost_reason: reasonValue(d.reason),
-      designer: reasonValue(d.designer),
+      designer: reasonValue(d.designer), sales_person: reasonValue(d.sales),
+      ...Object.fromEntries(RACKS.map((r) => [r.col, d[r.k]])),
     };
   }
 
@@ -140,6 +154,8 @@
       body.deal_closed = it.editDeal;
       body.lost_reason = reasonValue(it.editReason);
       body.designer = reasonValue(it.editDesigner);
+      body.sales_person = reasonValue(it.editSales);
+      RACKS.forEach((r) => { body[r.col] = it[r.edit]; });
     }
     return body;
   }
@@ -191,22 +207,45 @@
     });
     const assigned = plan.length - (byDesigner.has("（未填）") ? byDesigner.get("（未填）").count : 0);
 
+    // 依業務人員統計：負責件數、成交件數
+    const bySales = new Map();
+    plan.forEach((it) => {
+      const name = (it.sales_person || "").trim() || "（未填）";
+      const cur = bySales.get(name) || { count: 0, closed: 0 };
+      cur.count += 1;
+      if (it.deal_closed) cur.closed += 1;
+      bySales.set(name, cur);
+    });
+    const closedTotal = plan.filter((it) => it.deal_closed).length;
+    const pct = (a, b) => (b ? (Math.round((a / b) * 1000) / 10) + "%" : "—");
+    const unfilledLast = (a, b) => (a[0] === "（未填）") - (b[0] === "（未填）");
+
     const rows = [
       ["待規劃案件", plan.length + " 件", split(plan)],
       ["待計算數量案件", qty.length + " 件", split(qty)],
-      ["已成交", plan.filter((it) => it.deal_closed).length + " 件", ""],
       ["修改次數總數", revTotal + " 次", ""],
       ["設計人員案量總數", assigned + " 件", "已填設計人員的待規劃案件"],
     ];
     [...byDesigner.entries()]
       // 件數多的在前；「（未填）」固定放最後
-      .sort((a, b) => (a[0] === "（未填）") - (b[0] === "（未填）") ||
-        b[1].count - a[1].count || a[0].localeCompare(b[0], "zh-Hant"))
+      .sort((a, b) => unfilledLast(a, b) || b[1].count - a[1].count || a[0].localeCompare(b[0], "zh-Hant"))
       .forEach(([name, d]) => rows.push(["設計人員：" + name, d.count + " 件", "修改 " + d.rev + " 次"]));
 
+    // 個別業務成交案件數量（成交多的在前）
+    [...bySales.entries()]
+      .sort((a, b) => unfilledLast(a, b) || b[1].closed - a[1].closed || b[1].count - a[1].count ||
+        a[0].localeCompare(b[0], "zh-Hant"))
+      .forEach(([name, d]) => rows.push([
+        "業務：" + name, "成交 " + d.closed + " 件", "負責 " + d.count + " 件・成交率 " + pct(d.closed, d.count),
+      ]));
+
+    // 成交率（放最下面）
+    rows.push(["成交率", pct(closedTotal, plan.length), "已成交 " + closedTotal + " 件／待規劃案件 " + plan.length + " 件", "rate"]);
+
     statsListEl.replaceChildren();
-    rows.forEach(([k, v, sub]) => {
+    rows.forEach(([k, v, sub, cls]) => {
       const dt = document.createElement("dt");
+      if (cls) dt.className = "stats-" + cls;
       dt.textContent = k;
       if (sub) {
         const small = document.createElement("span");
@@ -215,17 +254,22 @@
         dt.append(small);
       }
       const dd = document.createElement("dd");
+      if (cls) dd.className = "stats-" + cls;
       dd.textContent = v;
       statsListEl.append(dt, dd);
     });
 
-    // 設計人員輸入建議
-    designerListEl.replaceChildren();
-    [...byDesigner.keys()].filter((n) => n !== "（未填）").forEach((n) => {
-      const opt = document.createElement("option");
-      opt.value = n;
-      designerListEl.append(opt);
-    });
+    // 設計人員、業務人員輸入建議
+    function fillList(el, names) {
+      el.replaceChildren();
+      names.filter((n) => n !== "（未填）").forEach((n) => {
+        const opt = document.createElement("option");
+        opt.value = n;
+        el.append(opt);
+      });
+    }
+    fillList(designerListEl, [...byDesigner.keys()]);
+    fillList(salesListEl, [...bySales.keys()]);
   }
 
   // ---------- 畫面 ----------
@@ -362,7 +406,48 @@
       designer.value = x.get("designer") || "";
       designer.addEventListener("input", () => { x.set("designer", designer.value); refresh(); });
 
-      extrasEl.append(rev, dealLabel, reason, designer);
+      // 業務人員（可從曾經輸入過的名字中挑選）
+      const sales = document.createElement("input");
+      sales.type = "text";
+      sales.maxLength = SALES_MAX;
+      sales.className = "designer-input";
+      sales.placeholder = "業務人員";
+      sales.setAttribute("aria-label", "業務人員");
+      sales.setAttribute("list", "sales-list");
+      sales.autocomplete = "off";
+      sales.value = x.get("sales") || "";
+      sales.addEventListener("input", () => { x.set("sales", sales.value); refresh(); });
+
+      // 架型勾選（可複選）
+      const racks = document.createElement("div");
+      racks.className = "item-racks";
+      racks.setAttribute("role", "group");
+      racks.setAttribute("aria-label", "架型");
+      RACKS.forEach((r) => {
+        const label = document.createElement("label");
+        label.className = "done-toggle";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.checked = x.get(r.k);
+        box.addEventListener("change", () => { x.set(r.k, box.checked); refresh(); });
+        const text = document.createElement("span");
+        text.textContent = r.label;
+        label.append(box, text);
+        racks.append(label);
+      });
+
+      // 名字欄位前面加上看得到的標籤，填了名字後仍分得出是哪個欄位
+      function labeled(text, input) {
+        const wrap = document.createElement("label");
+        wrap.className = "inline-field";
+        const span = document.createElement("span");
+        span.className = "inline-label";
+        span.textContent = text;
+        wrap.append(span, input);
+        return wrap;
+      }
+
+      extrasEl.append(rev, dealLabel, reason, labeled("設計人員", designer), labeled("業務人員", sales), racks);
     }
 
     li.classList.toggle("checked", opts.isStruck());
@@ -414,7 +499,11 @@
 
   function itemRow(it, inDoneTab) {
     const isPlan = it.category === PLAN;
-    const key = { plan: "editPlan", calc: "editCalc", rev: "editRev", deal: "editDeal", reason: "editReason", designer: "editDesigner" };
+    const key = {
+      plan: "editPlan", calc: "editCalc", rev: "editRev", deal: "editDeal", reason: "editReason",
+      designer: "editDesigner", sales: "editSales",
+      ...Object.fromEntries(RACKS.map((r) => [r.k, r.edit])),
+    };
     return makeRow({
       value: it.editContent,
       tag: inDoneTab ? it.category : "",
@@ -467,6 +556,7 @@
       edits[it.id] = {
         editContent: it.editContent, editPlan: it.editPlan, editCalc: it.editCalc, editDone: it.editDone,
         editRev: it.editRev, editDeal: it.editDeal, editReason: it.editReason, editDesigner: it.editDesigner,
+        editSales: it.editSales, ...Object.fromEntries(RACKS.map((r) => [r.edit, it[r.edit]])),
       };
     });
     reloadBtn.disabled = true;
@@ -475,7 +565,8 @@
     try {
       const { data, error } = await db
         .from(TABLE)
-        .select("id, created_at, category, content, done, done_at, plan_done, calc_done, revision_count, deal_closed, lost_reason, designer")
+        .select("id, created_at, category, content, done, done_at, plan_done, calc_done, revision_count, deal_closed, lost_reason, designer, " +
+          "sales_person, heavy_rack, light_rack, standard_rack, system_form")
         .order("created_at", { ascending: true })
         .limit(1000);
       if (error) throw error;
@@ -483,7 +574,8 @@
         ...it,
         editContent: it.content, editPlan: it.plan_done, editCalc: it.calc_done, editDone: it.done,
         editRev: it.revision_count, editDeal: it.deal_closed, editReason: it.lost_reason || "",
-        editDesigner: it.designer || "",
+        editDesigner: it.designer || "", editSales: it.sales_person || "",
+        ...Object.fromEntries(RACKS.map((r) => [r.edit, it[r.col]])),
         ...(edits[it.id] || {}),
       }));
       if (!keepEdits) EDIT_TABS.forEach((t) => { drafts[t] = []; });

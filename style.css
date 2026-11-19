@@ -378,3 +378,27 @@ button.stepper {
 .stats-list dt { color: var(--muted); }
 .stats-list dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
 .stats-sub { display: block; font-size: 0.82rem; }
+
+/* 設計部待辦：架型勾選、成交率 */
+.item-racks {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 14px;
+  padding: 2px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+.stats-list dt.stats-rate,
+.stats-list dd.stats-rate {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.stats-list dt.stats-rate { color: var(--text); font-weight: 600; }
+.stats-list dd.stats-rate { font-size: 1.4rem; color: var(--primary); }
+
+.inline-field { flex: 1 1 200px; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.inline-label { flex: none; font-size: 0.9rem; color: var(--muted); white-space: nowrap; }
+.inline-field input.designer-input { flex: 1 1 auto; }
+.stats-list dt.stats-rate .stats-sub { font-weight: 400; color: var(--muted); }
