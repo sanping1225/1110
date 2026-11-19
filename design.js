@@ -177,20 +177,32 @@
 
     // 每列：[名稱, 件數, 補充說明]
     const split = (list) => "進行中 " + (list.length - doneCount(list)) + "・已完成 " + doneCount(list);
+    const revOf = (it) => Number(it.revision_count) || 0;
+    const revTotal = plan.reduce((sum, it) => sum + revOf(it), 0);
+
+    // 依設計人員統計：件數、修改次數
+    const byDesigner = new Map();
+    plan.forEach((it) => {
+      const name = (it.designer || "").trim() || "（未填）";
+      const cur = byDesigner.get(name) || { count: 0, rev: 0 };
+      cur.count += 1;
+      cur.rev += revOf(it);
+      byDesigner.set(name, cur);
+    });
+    const assigned = plan.length - (byDesigner.has("（未填）") ? byDesigner.get("（未填）").count : 0);
+
     const rows = [
       ["待規劃案件", plan.length + " 件", split(plan)],
       ["待計算數量案件", qty.length + " 件", split(qty)],
       ["已成交", plan.filter((it) => it.deal_closed).length + " 件", ""],
+      ["修改次數總數", revTotal + " 次", ""],
+      ["設計人員案量總數", assigned + " 件", "已填設計人員的待規劃案件"],
     ];
-    const byDesigner = new Map();
-    plan.forEach((it) => {
-      const name = (it.designer || "").trim() || "（未填）";
-      byDesigner.set(name, (byDesigner.get(name) || 0) + 1);
-    });
     [...byDesigner.entries()]
       // 件數多的在前；「（未填）」固定放最後
-      .sort((a, b) => (a[0] === "（未填）") - (b[0] === "（未填）") || b[1] - a[1] || a[0].localeCompare(b[0], "zh-Hant"))
-      .forEach(([name, n]) => rows.push(["設計人員：" + name, n + " 件"]));
+      .sort((a, b) => (a[0] === "（未填）") - (b[0] === "（未填）") ||
+        b[1].count - a[1].count || a[0].localeCompare(b[0], "zh-Hant"))
+      .forEach(([name, d]) => rows.push(["設計人員：" + name, d.count + " 件", "修改 " + d.rev + " 次"]));
 
     statsListEl.replaceChildren();
     rows.forEach(([k, v, sub]) => {
