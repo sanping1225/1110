@@ -1,6 +1,7 @@
 // 設計部待辦（條列式）
 // 選單：待規劃案件、待計算數量案件、已完成。
 //   待規劃案件每列有兩個勾選：圖面規劃完成、計算書完成；兩個都勾並送出後移到「已完成」。
+//     另有：修改次數、是否成交（已成交）、未成交原因。
 //   待計算數量案件每列一個勾選：已完成。
 // 按「確認送出」一次保存所有變更到 Supabase 的 design_items。
 (function () {
@@ -22,6 +23,8 @@
     [DONE_TAB]: "取消勾選並按「確認送出」，可移回原本的項目。",
   };
   const MAX_LEN = 500;
+  const REASON_MAX = 200;
+  const REV_MAX = 999;
 
   const menuEl = document.getElementById("menu");
   const titleEl = document.getElementById("panel-title");
@@ -45,7 +48,7 @@
 
   function newDraft() {
     draftSeq += 1;
-    return { key: "d" + draftSeq, content: "", plan: false, calc: false, done: false };
+    return { key: "d" + draftSeq, content: "", plan: false, calc: false, done: false, rev: 0, deal: false, reason: "" };
   }
 
   function showMessage(el, text, kind) {
@@ -81,10 +84,10 @@
         return "資料表尚未建立：請在 Supabase SQL Editor 依序執行 supabase/design_items.sql、supabase/design_items_v2.sql。";
       case "42703":
       case "PGRST204":
-        return "資料表需要更新：請在 Supabase SQL Editor 執行 supabase/design_items_v2.sql。";
-      case "23514": return "內容不符合規定（每列 1～500 字）。若剛更新過，請確認已執行 supabase/design_items_v2.sql。";
+        return "資料表需要更新：請在 Supabase SQL Editor 執行 supabase/design_items_v3.sql（若尚未執行 v2，請先執行 design_items_v2.sql）。";
+      case "23514": return "內容不符合規定（每列 1～500 字、修改次數 0～999、未成交原因最多 200 字）。";
       case "23502": return "有必填欄位沒有填寫。";
-      case "42501": return "沒有權限，請確認已執行 supabase/design_items_v2.sql。";
+      case "42501": return "沒有權限，請確認已執行 supabase/design_items_v3.sql。";
     }
     if (error.message && /fetch|network/i.test(error.message)) {
       return "連線失敗，請檢查網路後再試一次。";
@@ -98,22 +101,38 @@
     return it.done ? DONE_TAB : it.category;
   }
 
+  // 未成交原因：空白存成 null
+  function reasonValue(v) {
+    const t = (v || "").trim();
+    return t ? t : null;
+  }
+
   function itemChanged(it) {
     return it.editContent.trim() !== it.content ||
-      it.editPlan !== it.plan_done || it.editCalc !== it.calc_done || it.editDone !== it.done;
+      it.editPlan !== it.plan_done || it.editCalc !== it.calc_done || it.editDone !== it.done ||
+      it.editRev !== it.revision_count || it.editDeal !== it.deal_closed ||
+      reasonValue(it.editReason) !== reasonValue(it.lost_reason);
   }
 
   function draftToRow(tab, d) {
     if (tab === QTY) {
       return { category: QTY, content: d.content.trim(), done: d.done, plan_done: false, calc_done: false };
     }
-    return { category: PLAN, content: d.content.trim(), done: d.plan && d.calc, plan_done: d.plan, calc_done: d.calc };
+    return {
+      category: PLAN, content: d.content.trim(), done: d.plan && d.calc, plan_done: d.plan, calc_done: d.calc,
+      revision_count: d.rev, deal_closed: d.deal, lost_reason: reasonValue(d.reason),
+    };
   }
 
   function updateBody(it) {
     const body = { content: it.editContent.trim(), plan_done: it.editPlan, calc_done: it.editCalc };
     // 待規劃案件的 done 由資料庫依兩個勾選自動判斷；這裡也送一樣的值
     body.done = it.category === PLAN ? it.editPlan && it.editCalc : it.editDone;
+    if (it.category === PLAN) {
+      body.revision_count = it.editRev;
+      body.deal_closed = it.editDeal;
+      body.lost_reason = reasonValue(it.editReason);
+    }
     return body;
   }
 
@@ -145,7 +164,8 @@
     month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
   });
 
-  // opts: { value, placeholder, tag, meta, checks: [{label, get, set}], onInput, isChanged, isStruck }
+  // opts: { value, placeholder, tag, meta, checks: [{label, get, set}], extras: {get, set} | null,
+  //         onInput, isChanged, isStruck }
   function makeRow(opts) {
     const li = document.createElement("li");
     li.className = "item-row";
@@ -175,9 +195,11 @@
     const checks = document.createElement("div");
     checks.className = "item-checks";
 
+    const syncs = []; // 勾選改變時要同步更新的畫面（例如已成交時停用未成交原因）
     function refresh() {
       li.classList.toggle("checked", opts.isStruck());
       li.classList.toggle("changed", opts.isChanged());
+      syncs.forEach((f) => f());
       updateSaveStatus();
     }
 
@@ -196,9 +218,77 @@
       checks.append(label);
     });
 
+    let extrasEl = null;
+    if (opts.extras) {
+      const x = opts.extras;
+      extrasEl = document.createElement("div");
+      extrasEl.className = "item-extras";
+
+      // 修改次數：− 數字 +
+      const rev = document.createElement("div");
+      rev.className = "rev-field";
+      const revLabel = document.createElement("span");
+      revLabel.className = "rev-label";
+      revLabel.textContent = "修改次數";
+      const minus = document.createElement("button");
+      minus.type = "button";
+      minus.className = "secondary stepper";
+      minus.textContent = "−";
+      minus.setAttribute("aria-label", "修改次數減 1");
+      const num = document.createElement("input");
+      num.type = "number";
+      num.min = "0";
+      num.max = String(REV_MAX);
+      num.inputMode = "numeric";
+      num.className = "rev-input";
+      num.setAttribute("aria-label", "修改次數");
+      num.value = String(x.get("rev"));
+      const plus = document.createElement("button");
+      plus.type = "button";
+      plus.className = "secondary stepper";
+      plus.textContent = "+";
+      plus.setAttribute("aria-label", "修改次數加 1");
+      function setRev(v) {
+        const n = Math.max(0, Math.min(REV_MAX, Number.isFinite(v) ? Math.trunc(v) : 0));
+        x.set("rev", n);
+        num.value = String(n);
+        refresh();
+      }
+      minus.addEventListener("click", () => setRev(x.get("rev") - 1));
+      plus.addEventListener("click", () => setRev(x.get("rev") + 1));
+      num.addEventListener("change", () => setRev(parseInt(num.value, 10)));
+      rev.append(revLabel, minus, num, plus);
+
+      // 已成交
+      const dealLabel = document.createElement("label");
+      dealLabel.className = "done-toggle";
+      const dealBox = document.createElement("input");
+      dealBox.type = "checkbox";
+      dealBox.checked = x.get("deal");
+      dealBox.addEventListener("change", () => { x.set("deal", dealBox.checked); refresh(); });
+      const dealText = document.createElement("span");
+      dealText.textContent = "已成交";
+      dealLabel.append(dealBox, dealText);
+
+      // 未成交原因（已成交時停用）
+      const reason = document.createElement("input");
+      reason.type = "text";
+      reason.maxLength = REASON_MAX;
+      reason.className = "reason-input";
+      reason.placeholder = "未成交原因";
+      reason.setAttribute("aria-label", "未成交原因");
+      reason.value = x.get("reason") || "";
+      reason.addEventListener("input", () => { x.set("reason", reason.value); refresh(); });
+      syncs.push(() => { reason.disabled = x.get("deal"); });
+
+      extrasEl.append(rev, dealLabel, reason);
+    }
+
     li.classList.toggle("checked", opts.isStruck());
     li.classList.toggle("changed", opts.isChanged());
+    syncs.forEach((f) => f());
     li.append(main, checks);
+    if (extrasEl) li.append(extrasEl);
     return { li, input };
   }
 
@@ -217,6 +307,7 @@
       checks: tab === QTY
         ? [{ label: "已完成", get: () => d.done, set: (v) => { d.done = v; } }]
         : planChecks((k) => d[k], (k, v) => { d[k] = v; }),
+      extras: tab === QTY ? null : { get: (k) => d[k], set: (k, v) => { d[k] = v; } },
       onInput: (v) => {
         d.content = v;
         // 在最後一列輸入時，自動補一列空白，方便繼續條列
@@ -242,7 +333,7 @@
 
   function itemRow(it, inDoneTab) {
     const isPlan = it.category === PLAN;
-    const key = { plan: "editPlan", calc: "editCalc" };
+    const key = { plan: "editPlan", calc: "editCalc", rev: "editRev", deal: "editDeal", reason: "editReason" };
     return makeRow({
       value: it.editContent,
       tag: inDoneTab ? it.category : "",
@@ -250,6 +341,7 @@
       checks: isPlan
         ? planChecks((k) => it[key[k]], (k, v) => { it[key[k]] = v; })
         : [{ label: "已完成", get: () => it.editDone, set: (v) => { it.editDone = v; } }],
+      extras: isPlan ? { get: (k) => it[key[k]], set: (k, v) => { it[key[k]] = v; } } : null,
       onInput: (v) => { it.editContent = v; },
       isChanged: () => itemChanged(it),
       isStruck: () => (isPlan ? it.editPlan && it.editCalc : it.editDone),
@@ -291,7 +383,10 @@
   async function load(keepEdits) {
     const edits = {};
     if (keepEdits) items.filter(itemChanged).forEach((it) => {
-      edits[it.id] = { editContent: it.editContent, editPlan: it.editPlan, editCalc: it.editCalc, editDone: it.editDone };
+      edits[it.id] = {
+        editContent: it.editContent, editPlan: it.editPlan, editCalc: it.editCalc, editDone: it.editDone,
+        editRev: it.editRev, editDeal: it.editDeal, editReason: it.editReason,
+      };
     });
     reloadBtn.disabled = true;
     saveBtn.disabled = true;
@@ -299,13 +394,14 @@
     try {
       const { data, error } = await db
         .from(TABLE)
-        .select("id, created_at, category, content, done, done_at, plan_done, calc_done")
+        .select("id, created_at, category, content, done, done_at, plan_done, calc_done, revision_count, deal_closed, lost_reason")
         .order("created_at", { ascending: true })
         .limit(1000);
       if (error) throw error;
       items = (data || []).map((it) => ({
         ...it,
         editContent: it.content, editPlan: it.plan_done, editCalc: it.calc_done, editDone: it.done,
+        editRev: it.revision_count, editDeal: it.deal_closed, editReason: it.lost_reason || "",
         ...(edits[it.id] || {}),
       }));
       if (!keepEdits) EDIT_TABS.forEach((t) => { drafts[t] = []; });

@@ -319,3 +319,36 @@ body.has-savebar { padding-bottom: 96px; }
 @media (display-mode: standalone) {
   .site-header { padding-top: calc(16px + env(safe-area-inset-top)); }
 }
+
+/* 設計部待辦：修改次數、已成交、未成交原因 */
+.item-extras {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding-left: calc(1.6em + 8px); /* 對齊上方的內容欄位 */
+}
+.rev-field { display: flex; align-items: center; gap: 6px; }
+.rev-label { font-size: 0.9rem; color: var(--muted); white-space: nowrap; }
+button.stepper {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.item-row input.rev-input {
+  width: 64px;
+  text-align: center;
+  padding: 8px 4px;
+  font: inherit;
+  font-size: 16px;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.item-row input.reason-input { flex: 1 1 180px; min-width: 0; padding: 8px 12px; }
+.item-row input.reason-input:disabled { opacity: 0.5; }
+.item-row.checked input.reason-input { text-decoration: none; }
